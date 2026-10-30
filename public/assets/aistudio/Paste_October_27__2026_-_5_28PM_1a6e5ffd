@@ -1,0 +1,1213 @@
+```html
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>محارب اليمن - Yemeni Warrior 3D</title>
+    <!-- Tailwind CSS for UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js for 3D Graphics -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;700;900&display=swap');
+        
+        * {
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+            font-family: 'Tajawal', sans-serif;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+            color: #fff;
+        }
+
+        #game-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Glassmorphism UI */
+        .glass-panel {
+            background: rgba(18, 18, 24, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-button {
+            background: linear-gradient(135deg, rgba(218, 41, 28, 0.4), rgba(0, 0, 0, 0.6));
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .glass-button:hover, .glass-button:active {
+            background: linear-gradient(135deg, rgba(218, 41, 28, 0.8), rgba(218, 41, 28, 0.4));
+            border-color: rgba(255, 215, 0, 0.8);
+            transform: scale(1.02);
+        }
+
+        /* Crosshair */
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        /* Joysticks / Mobile Controls */
+        .joystick-zone {
+            position: absolute;
+            bottom: 20px;
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            touch-action: none;
+        }
+
+        .joystick-knob {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(218,41,28,0.9) 0%, rgba(100,0,0,0.8) 100%);
+            position: absolute;
+            top: 45px;
+            left: 45px;
+            box-shadow: 0 0 15px rgba(218,41,28,0.5);
+            pointer-events: none;
+        }
+
+        /* Yemeni Flag Accent Borders */
+        .yemen-border {
+            border-image: linear-gradient(to right, #CE1126 33%, #FFFFFF 33%, #FFFFFF 66%, #000000 66%) 1;
+        }
+
+        /* Blood Vignette Effect on Low Health */
+        #damage-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: radial-gradient(circle, transparent 60%, rgba(200, 0, 0, 0.6) 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 15;
+        }
+    </style>
+</head>
+<body class="select-none overflow-hidden">
+
+    <!-- 3D Canvas -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Damage Overlay -->
+    <div id="damage-overlay"></div>
+
+    <!-- Crosshair -->
+    <div id="crosshair" class="w-8 h-8 flex items-center justify-center">
+        <div class="w-1.5 h-1.5 bg-red-500 rounded-full shadow-[0_0_8px_#f00]"></div>
+        <div class="absolute w-4 h-0.5 bg-white/70 -left-3"></div>
+        <div class="absolute w-4 h-0.5 bg-white/70 -right-3"></div>
+        <div class="absolute w-0.5 h-4 bg-white/70 -top-3"></div>
+        <div class="absolute w-0.5 h-4 bg-white/70 -bottom-3"></div>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud-screen" class="hidden absolute inset-0 pointer-events-none z-10 flex flex-col justify-between p-4">
+        <!-- Top HUD Header -->
+        <div class="flex justify-between items-start w-full">
+            <!-- Health & Status -->
+            <div class="glass-panel p-3 rounded-2xl w-64 border-r-4 border-red-600 pointer-events-auto">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="font-bold text-sm text-amber-400 flex items-center gap-2">
+                        <i class="fa-solid fa-shield-halved"></i> المحارب اليمني
+                    </span>
+                    <span id="health-text" class="text-xs font-mono font-bold text-white">100 HP</span>
+                </div>
+                <!-- Health Bar -->
+                <div class="w-full h-3 bg-gray-900 rounded-full overflow-hidden p-0.5 border border-white/10">
+                    <div id="health-bar" class="h-full bg-gradient-to-r from-red-600 via-amber-500 to-emerald-500 rounded-full w-full transition-all duration-300"></div>
+                </div>
+                <!-- Loot Bag Tracker -->
+                <div class="flex items-center justify-between mt-2 pt-2 border-t border-white/10 text-xs">
+                    <span class="text-gray-300"><i class="fa-solid fa-gem text-amber-400 ml-1"></i> الآثار المجمعة:</span>
+                    <span id="loot-count" class="font-bold text-amber-300 font-mono">0 / 5</span>
+                </div>
+            </div>
+
+            <!-- Mini Map & Region Info -->
+            <div class="flex gap-3 items-start pointer-events-auto">
+                <div class="glass-panel p-2 rounded-2xl text-center hidden sm:block">
+                    <div id="region-badge" class="px-3 py-1 bg-amber-600/30 text-amber-300 font-bold rounded-xl text-xs border border-amber-500/40">
+                        صنعاء القديمة
+                    </div>
+                    <div id="fps-counter" class="text-[10px] text-gray-400 font-mono mt-1">60 FPS</div>
+                </div>
+
+                <!-- Radar / Mini Map -->
+                <div class="glass-panel w-24 h-24 rounded-2xl relative overflow-hidden border border-amber-500/30 flex items-center justify-center">
+                    <div class="absolute inset-0 opacity-20 bg-[radial-gradient(#ffaa00_1px,transparent_1px)] [background-size:8px_8px]"></div>
+                    <div id="radar-player" class="w-2 h-2 bg-emerald-400 rounded-full z-10 shadow-[0_0_6px_#0f0]"></div>
+                    <div id="radar-blips" class="absolute inset-0"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Notification Toast -->
+        <div id="game-toast" class="self-center bg-black/80 text-amber-300 border border-amber-500/50 px-6 py-2 rounded-full font-bold text-sm transform -translate-y-10 opacity-0 transition-all duration-300 backdrop-blur-md shadow-2xl">
+            مرحباً بك في ساحة المعركة!
+        </div>
+
+        <!-- Bottom HUD Footer Controls & Ammo -->
+        <div class="flex justify-between items-end w-full">
+            <!-- Left Controls / Mobile Joysticks -->
+            <div id="left-touch-zone" class="joystick-zone pointer-events-auto sm:hidden">
+                <div id="left-knob" class="joystick-knob"></div>
+            </div>
+
+            <!-- Ammo & Camera Toggle Center/Right -->
+            <div class="flex flex-col items-end gap-3 pointer-events-auto">
+                <!-- Action Buttons for Mobile/Desktop -->
+                <div class="flex gap-2">
+                    <button id="btn-cam-toggle" class="glass-panel p-3 rounded-xl text-xs font-bold hover:bg-white/10 active:scale-95 flex items-center gap-2">
+                        <i class="fa-solid fa-camera"></i> <span id="cam-label">FPS</span>
+                    </button>
+                    <button id="btn-reload" class="glass-panel p-3 rounded-xl text-xs font-bold text-amber-400 hover:bg-white/10 active:scale-95 flex items-center gap-2">
+                        <i class="fa-solid fa-rotate-right"></i> تعبئة
+                    </button>
+                    <button id="btn-sound-toggle" class="glass-panel p-3 rounded-xl text-xs font-bold hover:bg-white/10 active:scale-95">
+                        <i id="sound-icon" class="fa-solid fa-volume-high"></i>
+                    </button>
+                </div>
+
+                <!-- Ammo Status Box -->
+                <div class="glass-panel p-3 px-5 rounded-2xl flex items-center gap-4 border-l-4 border-amber-500">
+                    <i class="fa-solid fa-person-rifle text-2xl text-amber-400"></i>
+                    <div class="text-right">
+                        <div class="text-[10px] text-gray-400 uppercase font-bold tracking-wider">السلاح: بندقية المعركة</div>
+                        <div class="text-xl font-black font-mono text-white tracking-widest">
+                            <span id="ammo-clip" class="text-amber-400">30</span> / <span id="ammo-reserve" class="text-gray-400 text-sm">120</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Menu & Location Selection Modal -->
+    <div id="menu-screen" class="absolute inset-0 z-30 flex items-center justify-center bg-gradient-to-t from-black via-slate-950/90 to-black/80 backdrop-blur-md p-4">
+        <div class="glass-panel p-6 sm:p-10 rounded-3xl max-w-2xl w-full text-center border-t-4 border-red-600 shadow-2xl relative overflow-hidden">
+            <!-- Top Yemeni Flag Line Decor -->
+            <div class="absolute top-0 left-0 right-0 h-1.5 flex">
+                <div class="w-1/3 bg-red-600"></div>
+                <div class="w-1/3 bg-white"></div>
+                <div class="w-1/3 bg-black"></div>
+            </div>
+
+            <h1 class="text-3xl sm:text-5xl font-black mb-2 text-transparent bg-clip-text bg-gradient-to-r from-red-500 via-amber-300 to-amber-500 tracking-wide">
+                محارب اليمن 3D
+            </h1>
+            <p class="text-gray-300 text-xs sm:text-sm mb-6 font-medium">
+                معركة واقعية في المحافظات التاريخية - اختر أرض المعركة وانطلق
+            </p>
+
+            <!-- Governorate Selection Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+                <button onclick="selectLocation('sanaa')" id="loc-sanaa" class="location-card p-3 rounded-2xl glass-panel border-2 border-amber-500/80 bg-amber-500/20 text-right flex flex-col justify-between h-24 transition-all">
+                    <span class="text-xs text-amber-300 font-bold">العاصمة</span>
+                    <span class="text-lg font-black text-white">صنعاء القديمة</span>
+                    <span class="text-[10px] text-gray-300">أبراج طينية تاريخية</span>
+                </button>
+                <button onclick="selectLocation('marib')" id="loc-marib" class="location-card p-3 rounded-2xl glass-panel border-2 border-transparent hover:border-amber-500/50 text-right flex flex-col justify-between h-24 transition-all">
+                    <span class="text-xs text-amber-400 font-bold">صحراء الأحقاف</span>
+                    <span class="text-lg font-black text-white">مأرب</span>
+                    <span class="text-[10px] text-gray-400">رمال وعرش بلقيس</span>
+                </button>
+                <button onclick="selectLocation('hadramout')" id="loc-hadramout" class="location-card p-3 rounded-2xl glass-panel border-2 border-transparent hover:border-amber-500/50 text-right flex flex-col justify-between h-24 transition-all">
+                    <span class="text-xs text-amber-400 font-bold">ناطحات الطين</span>
+                    <span class="text-lg font-black text-white">حضرموت</span>
+                    <span class="text-[10px] text-gray-400">شبام التاريخية</span>
+                </button>
+                <button onclick="selectLocation('socotra')" id="loc-socotra" class="location-card p-3 rounded-2xl glass-panel border-2 border-transparent hover:border-amber-500/50 text-right flex flex-col justify-between h-24 transition-all">
+                    <span class="text-xs text-amber-400 font-bold">الجزيرة الأسطورية</span>
+                    <span class="text-lg font-black text-white">سقطرى</span>
+                    <span class="text-[10px] text-gray-400">أشجار دم الأخوين</span>
+                </button>
+            </div>
+
+            <!-- Start Game Button -->
+            <button id="btn-start-game" class="glass-button w-full py-4 rounded-2xl text-xl font-black text-amber-300 shadow-xl flex items-center justify-center gap-3">
+                <i class="fa-solid fa-play"></i> ابدأ المعركة الآن
+            </button>
+
+            <!-- Instructions -->
+            <div class="mt-6 pt-4 border-t border-white/10 text-xs text-gray-400 flex justify-around">
+                <span><i class="fa-solid fa-keyboard text-amber-400"></i> WASD: الحركة</span>
+                <span><i class="fa-solid fa-mouse text-amber-400"></i> الماوس: التوجيه والإطلاق</span>
+                <span><i class="fa-solid fa-mobile-screen text-amber-400"></i> لمس للموبايل</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over / Victory Modal -->
+    <div id="game-over-screen" class="hidden absolute inset-0 z-40 flex items-center justify-center bg-black/90 backdrop-blur-lg p-4">
+        <div class="glass-panel p-8 rounded-3xl max-w-md w-full text-center border-2 border-red-500/50">
+            <div id="game-over-icon" class="text-6xl text-red-500 mb-3"><i class="fa-solid fa-skull"></i></div>
+            <h2 id="game-over-title" class="text-3xl font-black mb-2 text-white">انتهاء المعركة</h2>
+            <p id="game-over-desc" class="text-gray-300 text-sm mb-6">لقد سقطت في ساحة الشرف دفاعاً عن الوطن.</p>
+            <button id="btn-restart" class="glass-button w-full py-3 rounded-xl font-bold text-amber-300 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-rotate-left"></i> وإعادة المحاولة
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Engine Logic -->
+    <script>
+        // ==========================================
+        // 1. SOUND SYNTHESIZER (Web Audio API)
+        // ==========================================
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playShot() {
+                if (!this.enabled || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                
+                // Gunfire noise burst
+                const bufferSize = this.ctx.sampleRate * 0.15;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(1000, now);
+                filter.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.8, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start(now);
+
+                // Transient Body (Oscillator)
+                const osc = this.ctx.createOscillator();
+                const oscGain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(30, now + 0.1);
+
+                oscGain.gain.setValueAtTime(0.5, now);
+                oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+                osc.connect(oscGain);
+                oscGain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            }
+
+            playHit() {
+                if (!this.enabled || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            }
+
+            playLoot() {
+                if (!this.enabled || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
+                osc.frequency.setValueAtTime(783.99, now + 0.16); // G5
+
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+
+            playExplosion() {
+                if (!this.enabled || !this.ctx) return;
+                const now = this.ctx.currentTime;
+                const bufferSize = this.ctx.sampleRate * 0.5;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(400, now);
+                filter.frequency.exponentialRampToValueAtTime(30, now + 0.5);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(1.0, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                noise.start(now);
+            }
+        }
+
+        const audio = new SoundEngine();
+
+        // ==========================================
+        // 2. PROCEDURAL TEXTURES GENERATOR
+        // ==========================================
+        function createYemeniTowerTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            // Warm mud-brick base
+            ctx.fillStyle = '#b8860b';
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Brick Noise
+            ctx.fillStyle = 'rgba(100, 60, 20, 0.15)';
+            for (let i = 0; i < 2000; i++) {
+                ctx.fillRect(Math.random() * 512, Math.random() * 512, 4, 4);
+            }
+
+            // White traditional geometric trim patterns (Qamariya & Crown style)
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 6;
+            ctx.fillStyle = '#ffffff';
+
+            // Top decorative arches
+            for (let x = 0; x < 512; x += 64) {
+                ctx.beginPath();
+                ctx.arc(x + 32, 60, 24, Math.PI, 0);
+                ctx.stroke();
+
+                // Geometric window frames
+                ctx.strokeRect(x + 16, 120, 32, 48);
+                ctx.beginPath();
+                ctx.arc(x + 32, 120, 16, Math.PI, 0);
+                ctx.fill();
+            }
+
+            // Zigzag traditional band
+            ctx.beginPath();
+            ctx.moveTo(0, 250);
+            for (let x = 0; x <= 512; x += 32) {
+                ctx.lineTo(x, (x / 32) % 2 === 0 ? 230 : 270);
+            }
+            ctx.stroke();
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            return texture;
+        }
+
+        function createTerrainTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#c2a649';
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Dirt noise
+            for (let i = 0; i < 5000; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? 'rgba(80,60,20,0.1)' : 'rgba(220,190,120,0.15)';
+                ctx.fillRect(Math.random() * 512, Math.random() * 512, 3, 3);
+            }
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(20, 20);
+            return texture;
+        }
+
+        // ==========================================
+        // 3. MAIN GAME STATE & ENGINE SETUP
+        // ==========================================
+        let scene, camera, renderer;
+        let playerGroup, playerBody, weaponMesh;
+        let isFirstPerson = true;
+        let currentLocation = 'sanaa';
+        let health = 100;
+        let ammoClip = 30;
+        let ammoReserve = 120;
+        let lootCollected = 0;
+        const totalLoot = 5;
+        let isPlaying = false;
+
+        // Entities arrays
+        let enemies = [];
+        let bullets = [];
+        let particles = [];
+        let lootItems = [];
+
+        // Input Tracking
+        const keys = {};
+        const touchState = { moveX: 0, moveY: 0, lookX: 0, lookY: 0, active: false };
+
+        // Initialize Three.js Engine
+        function initEngine() {
+            const canvas = document.getElementById('game-canvas');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xd4a373);
+            scene.fog = new THREE.FogExp2(0xd4a373, 0.015);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            // Lighting Setup
+            const ambientLight = new THREE.AmbientLight(0xffecd1, 0.6);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfff5e6, 1.2);
+            sunLight.position.set(50, 80, 40);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 250;
+            const d = 60;
+            sunLight.shadow.camera.left = -d;
+            sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d;
+            sunLight.shadow.camera.bottom = -d;
+            scene.add(sunLight);
+
+            // Create Player
+            setupPlayer();
+
+            // Build Initial World Environment
+            buildEnvironment();
+
+            // Attach Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            setupInput();
+
+            // Start Render Loop
+            animate();
+        }
+
+        // ==========================================
+        // 4. PLAYER & WEAPON MESH GENERATION
+        // ==========================================
+        function setupPlayer() {
+            playerGroup = new THREE.Group();
+            playerGroup.position.set(0, 1.6, 0);
+            scene.add(playerGroup);
+
+            // Third Person Character Mesh (Yemeni Warrior with Jambiya dagger & outfit)
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 });
+            const vestMat = new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 0.5 }); // Yemeni red accent
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xc58c85 });
+
+            // Torso
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, 0.3), vestMat);
+            torso.position.y = 0.4;
+            torso.castShadow = true;
+
+            // Head & Traditional Headscarf (Shemagh)
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.2, 16, 16), skinMat);
+            head.position.y = 0.95;
+            const shemagh = new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.2, 16), new THREE.MeshStandardMaterial({ color: 0xffffff }));
+            shemagh.position.y = 1.05;
+
+            // Traditional Jambiya Dagger Belt
+            const belt = new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.12, 0.35), new THREE.MeshStandardMaterial({ color: 0xd4af37 }));
+            belt.position.y = 0.05;
+
+            // Curved Jambiya Sheath
+            const jambiyaCurve = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.03, 8, 16, Math.PI), new THREE.MeshStandardMaterial({ color: 0xb8860b }));
+            jambiyaCurve.rotation.z = -Math.PI / 4;
+            jambiyaCurve.position.set(0, 0.05, 0.2);
+
+            playerBody = new THREE.Group();
+            playerBody.add(torso, head, shemagh, belt, jambiyaCurve);
+            playerBody.visible = false; // Hidden in First Person initial view
+            playerGroup.add(playerBody);
+
+            // 3D Battle Rifle Weapon
+            weaponMesh = new THREE.Group();
+            const gunBody = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.6), new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.8, roughness: 0.3 }));
+            const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.4), new THREE.MeshStandardMaterial({ color: 0x050505, metalness: 0.9 }));
+            barrel.rotation.x = Math.PI / 2;
+            barrel.position.set(0, 0.03, -0.4);
+            const mag = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.1), new THREE.MeshStandardMaterial({ color: 0x333333 }));
+            mag.position.set(0, -0.1, -0.1);
+            mag.rotation.x = 0.2;
+
+            weaponMesh.add(gunBody, barrel, mag);
+            weaponMesh.position.set(0.25, -0.2, -0.4); // FPS View Position
+            camera.add(weaponMesh);
+            scene.add(camera);
+        }
+
+        // ==========================================
+        // 5. ENVIRONMENT GENERATOR (ARCHITECTURAL & MAP)
+        // ==========================================
+        function buildEnvironment() {
+            // Clear previous world meshes
+            for (let i = scene.children.length - 1; i >= 0; i--) {
+                const obj = scene.children[i];
+                if (obj.userData && obj.userData.isWorld) {
+                    scene.remove(obj);
+                }
+            }
+
+            const terrainTex = createTerrainTexture();
+            const towerTex = createYemeniTowerTexture();
+
+            // Terrain Floor
+            const floorGeo = new THREE.PlaneGeometry(300, 300);
+            const floorMat = new THREE.MeshStandardMaterial({ map: terrainTex, roughness: 0.9 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            floor.userData = { isWorld: true };
+            scene.add(floor);
+
+            // Build Traditional Yemeni Tower Houses (Bab Al-Yemen Architectural Style)
+            const towerGeo = new THREE.BoxGeometry(10, 35, 10);
+            const towerMat = new THREE.MeshStandardMaterial({ map: towerTex, roughness: 0.7 });
+
+            for (let i = 0; i < 25; i++) {
+                const tower = new THREE.Mesh(towerGeo, towerMat);
+                const angle = (i / 25) * Math.PI * 2;
+                const radius = 35 + Math.random() * 50;
+                tower.position.set(Math.cos(angle) * radius, 17.5, Math.sin(angle) * radius);
+                tower.castShadow = true;
+                tower.receiveShadow = true;
+                tower.userData = { isWorld: true };
+                scene.add(tower);
+            }
+
+            // Spawn Collectible Yemeni Relics/Loot
+            spawnLootItems();
+
+            // Spawn Initial Waves of Enemies
+            spawnEnemyWave(6);
+        }
+
+        // Spawn Glowing 3D Loot Items
+        function spawnLootItems() {
+            lootItems.forEach(item => scene.remove(item.mesh));
+            lootItems = [];
+
+            const relicGeo = new THREE.OctahedronGeometry(0.5);
+            const relicMat = new THREE.MeshStandardMaterial({ color: 0xffd700, metalness: 0.8, roughness: 0.2, emissive: 0xffaa00, emissiveIntensity: 0.5 });
+
+            for (let i = 0; i < totalLoot; i++) {
+                const mesh = new THREE.Mesh(relicGeo, relicMat);
+                const angle = Math.random() * Math.PI * 2;
+                const dist = 15 + Math.random() * 35;
+                mesh.position.set(Math.cos(angle) * dist, 1, Math.sin(angle) * dist);
+
+                const pointLight = new THREE.PointLight(0xffaa00, 1, 5);
+                mesh.add(pointLight);
+
+                scene.add(mesh);
+                lootItems.push({ mesh: mesh, active: true });
+            }
+        }
+
+        // ==========================================
+        // 6. ENEMY AI ENGINE
+        // ==========================================
+        function spawnEnemyWave(count) {
+            enemies.forEach(e => scene.remove(e.mesh));
+            enemies = [];
+
+            const enemyGeo = new THREE.CylinderGeometry(0.4, 0.4, 1.8, 12);
+            for (let i = 0; i < count; i++) {
+                const mat = new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 0.5 });
+                const mesh = new THREE.Mesh(enemyGeo, mat);
+
+                // Spawn at distance
+                const angle = Math.random() * Math.PI * 2;
+                const r = 25 + Math.random() * 30;
+                mesh.position.set(Math.cos(angle) * r, 0.9, Math.sin(angle) * r);
+                mesh.castShadow = true;
+
+                // Enemy Eyes
+                const eyeGeo = new THREE.BoxGeometry(0.3, 0.1, 0.1);
+                const eyeMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+                const eyes = new THREE.Mesh(eyeGeo, eyeMat);
+                eyes.position.set(0, 0.6, -0.35);
+                mesh.add(eyes);
+
+                scene.add(mesh);
+                enemies.push({
+                    mesh: mesh,
+                    hp: 50,
+                    speed: 2.5 + Math.random() * 1.5,
+                    lastAttack: 0
+                });
+            }
+        }
+
+        function updateEnemies(delta) {
+            const pPos = playerGroup.position;
+
+            enemies.forEach((enemy, index) => {
+                if (enemy.hp <= 0) return;
+
+                // Direction to player
+                const dir = new THREE.Vector3().subVectors(pPos, enemy.mesh.position);
+                dir.y = 0; // Ground plane only
+                const dist = dir.length();
+
+                if (dist > 1.2) {
+                    dir.normalize();
+                    enemy.mesh.position.addScaledVector(dir, enemy.speed * delta);
+                    enemy.mesh.lookAt(pPos.x, enemy.mesh.position.y, pPos.z);
+                } else {
+                    // Attack Player
+                    const now = performance.now();
+                    if (now - enemy.lastAttack > 1200) {
+                        enemy.lastAttack = now;
+                        takeDamage(12);
+                    }
+                }
+            });
+        }
+
+        // ==========================================
+        // 7. SHOOTING & BULLET PHYSICS ENGINE
+        // ==========================================
+        function shootWeapon() {
+            if (ammoClip <= 0) {
+                showToast("تنبيه: مخزن الذخيرة فارغ! اضغط تعبئة");
+                return;
+            }
+
+            ammoClip--;
+            updateHUD();
+            audio.playShot();
+
+            // Weapon Recoil Animation
+            weaponMesh.position.z += 0.08;
+            setTimeout(() => weaponMesh.position.z -= 0.08, 60);
+
+            // Muzzle Flash Light
+            const flash = new THREE.PointLight(0xffaa00, 3, 4);
+            flash.position.set(0, 0, -0.8);
+            weaponMesh.add(flash);
+            setTimeout(() => weaponMesh.remove(flash), 40);
+
+            // Calculate Shoot Direction from Crosshair Camera Raycast
+            const raycaster = new THREE.Raycaster();
+            raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+
+            // Create Visual Bullet Particle Tracer
+            const bulletGeo = new THREE.SphereGeometry(0.05, 8, 8);
+            const bulletMat = new THREE.MeshBasicMaterial({ color: 0xffcc00 });
+            const bullet = new THREE.Mesh(bulletGeo, bulletMat);
+            
+            // Set spawn at weapon muzzle
+            const spawnPos = new THREE.Vector3();
+            weaponMesh.getWorldPosition(spawnPos);
+            bullet.position.copy(spawnPos);
+
+            const bulletDir = raycaster.ray.direction.clone();
+            bullets.push({ mesh: bullet, dir: bulletDir, life: 1.0 });
+            scene.add(bullet);
+
+            // Hit Detection Raycast
+            const enemyMeshes = enemies.filter(e => e.hp > 0).map(e => e.mesh);
+            const intersects = raycaster.intersectObjects(enemyMeshes);
+
+            if (intersects.length > 0) {
+                const hitObj = intersects[0].object;
+                const enemy = enemies.find(e => e.mesh === hitObj);
+                if (enemy) {
+                    enemy.hp -= 25;
+                    audio.playHit();
+                    createSparkParticles(intersects[0].point, 0xff0000);
+
+                    // Enemy Reaction Flash
+                    hitObj.material.color.setHex(0xffffff);
+                    setTimeout(() => hitObj.material.color.setHex(0x8b0000), 80);
+
+                    if (enemy.hp <= 0) {
+                        // Dissolve / Explode enemy into particles
+                        createExplosionParticles(enemy.mesh.position);
+                        audio.playExplosion();
+                        scene.remove(enemy.mesh);
+                        showToast("تم القضاء على العدو!");
+                    }
+                }
+            } else {
+                // Ground/Wall spark impact
+                const worldIntersects = raycaster.intersectObjects(scene.children.filter(c => c.userData && c.userData.isWorld));
+                if (worldIntersects.length > 0) {
+                    createSparkParticles(worldIntersects[0].point, 0xffaa00);
+                }
+            }
+        }
+
+        // Particle FX
+        function createSparkParticles(pos, colorHex) {
+            const pGeo = new THREE.SphereGeometry(0.04, 4, 4);
+            const pMat = new THREE.MeshBasicMaterial({ color: colorHex });
+
+            for (let i = 0; i < 8; i++) {
+                const p = new THREE.Mesh(pGeo, pMat);
+                p.position.copy(pos);
+                const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 6,
+                    Math.random() * 4,
+                    (Math.random() - 0.5) * 6
+                );
+                scene.add(p);
+                particles.push({ mesh: p, vel: vel, life: 0.3 });
+            }
+        }
+
+        function createExplosionParticles(pos) {
+            const pGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+            const pMat = new THREE.MeshStandardMaterial({ color: 0xd44000, roughness: 0.4 });
+
+            for (let i = 0; i < 20; i++) {
+                const p = new THREE.Mesh(pGeo, pMat);
+                p.position.copy(pos);
+                const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 10,
+                    Math.random() * 8,
+                    (Math.random() - 0.5) * 10
+                );
+                scene.add(p);
+                particles.push({ mesh: p, vel: vel, life: 0.8 });
+            }
+        }
+
+        // ==========================================
+        // 8. INPUT HANDLERS (KEYBOARD & TOUCH)
+        // ==========================================
+        function setupInput() {
+            // Keyboard Controls
+            window.addEventListener('keydown', (e) => {
+                keys[e.code] = true;
+                if (e.code === 'KeyR') reloadWeapon();
+                if (e.code === 'KeyV') toggleCameraMode();
+            });
+            window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+            // Mouse Click Shooting & Pointer Lock Look
+            const canvas = document.getElementById('game-canvas');
+            canvas.addEventListener('mousedown', (e) => {
+                if (!isPlaying) return;
+                if (document.pointerLockElement !== canvas) {
+                    canvas.requestPointerLock();
+                } else if (e.button === 0) {
+                    shootWeapon();
+                }
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (document.pointerLockElement === canvas && isPlaying) {
+                    playerGroup.rotation.y -= e.movementX * 0.0025;
+                    camera.rotation.x -= e.movementY * 0.0025;
+                    camera.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, camera.rotation.x));
+                }
+            });
+
+            // Mobile Touch Joystick Handling
+            const touchZone = document.getElementById('left-touch-zone');
+            const knob = document.getElementById('left-knob');
+
+            touchZone.addEventListener('touchstart', (e) => {
+                touchState.active = true;
+                updateJoystick(e.touches[0], touchZone, knob);
+            });
+
+            touchZone.addEventListener('touchmove', (e) => {
+                if (touchState.active) {
+                    updateJoystick(e.touches[0], touchZone, knob);
+                }
+            });
+
+            const resetJoystick = () => {
+                touchState.active = false;
+                touchState.moveX = 0;
+                touchState.moveY = 0;
+                knob.style.transform = `translate(0px, 0px)`;
+            };
+
+            touchZone.addEventListener('touchend', resetJoystick);
+            touchZone.addEventListener('touchcancel', resetJoystick);
+
+            // Screen Touch Look for Mobile
+            window.addEventListener('touchmove', (e) => {
+                if (!isPlaying || touchState.active) return;
+                const touch = e.touches[0];
+                if (touch.clientX > window.innerWidth / 2) {
+                    // Right half screen camera touch drag
+                    if (touchState.lastTouchX) {
+                        const dx = touch.clientX - touchState.lastTouchX;
+                        const dy = touch.clientY - touchState.lastTouchY;
+                        playerGroup.rotation.y -= dx * 0.005;
+                        camera.rotation.x -= dy * 0.005;
+                        camera.rotation.x = Math.max(-Math.PI / 3, Math.min(Math.PI / 3, camera.rotation.x));
+                    }
+                    touchState.lastTouchX = touch.clientX;
+                    touchState.lastTouchY = touch.clientY;
+                }
+            });
+
+            window.addEventListener('touchend', () => {
+                touchState.lastTouchX = null;
+                touchState.lastTouchY = null;
+            });
+        }
+
+        function updateJoystick(touch, zone, knob) {
+            const rect = zone.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            let dx = touch.clientX - centerX;
+            let dy = touch.clientY - centerY;
+            const dist = Math.min(Math.sqrt(dx * dx + dy * dy), 45);
+            const angle = Math.atan2(dy, dx);
+
+            const knobX = Math.cos(angle) * dist;
+            const knobY = Math.sin(angle) * dist;
+
+            knob.style.transform = `translate(${knobX}px, ${knobY}px)`;
+            touchState.moveX = knobX / 45;
+            touchState.moveY = knobY / 45;
+        }
+
+        // ==========================================
+        // 9. GAME LOGIC & ANIMATION LOOP
+        // ==========================================
+        let clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = clock.getDelta();
+
+            if (isPlaying) {
+                // Movement Vector
+                const moveSpeed = 8.0 * delta;
+                const moveVector = new THREE.Vector3();
+
+                if (keys['KeyW'] || keys['ArrowUp']) moveVector.z -= 1;
+                if (keys['KeyS'] || keys['ArrowDown']) moveVector.z += 1;
+                if (keys['KeyA'] || keys['ArrowLeft']) moveVector.x -= 1;
+                if (keys['KeyD'] || keys['ArrowRight']) moveVector.x += 1;
+
+                // Mobile Joystick input override
+                if (touchState.active) {
+                    moveVector.x = touchState.moveX;
+                    moveVector.z = touchState.moveY;
+                }
+
+                moveVector.normalize();
+                moveVector.applyAxisAngle(new THREE.Vector3(0, 1, 0), playerGroup.rotation.y);
+                playerGroup.position.addScaledVector(moveVector, moveSpeed * 8.0);
+
+                // Update Camera Placement (FPS vs TPS)
+                if (isFirstPerson) {
+                    camera.position.copy(playerGroup.position);
+                    camera.position.y += 0.6; // Eye height
+                } else {
+                    // Third Person Camera Follow
+                    const offset = new THREE.Vector3(0, 2.5, 4.5);
+                    offset.applyAxisAngle(new THREE.Vector3(0, 1, 0), playerGroup.rotation.y);
+                    camera.position.copy(playerGroup.position).add(offset);
+                    camera.lookAt(playerGroup.position.x, playerGroup.position.y + 1, playerGroup.position.z);
+                }
+
+                // Update Bullets Physics
+                for (let i = bullets.length - 1; i >= 0; i--) {
+                    const b = bullets[i];
+                    b.mesh.position.addScaledVector(b.dir, 40 * delta);
+                    b.life -= delta;
+                    if (b.life <= 0) {
+                        scene.remove(b.mesh);
+                        bullets.splice(i, 1);
+                    }
+                }
+
+                // Update Particles Physics
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    const p = particles[i];
+                    p.mesh.position.addScaledVector(p.vel, delta);
+                    p.life -= delta;
+                    if (p.life <= 0) {
+                        scene.remove(p.mesh);
+                        particles.splice(i, 1);
+                    }
+                }
+
+                // Update Relic Loot Pickup Collisions & Rotating Animation
+                lootItems.forEach((loot, idx) => {
+                    if (!loot.active) return;
+                    loot.mesh.rotation.y += 1.5 * delta;
+
+                    // Distance check with player
+                    if (playerGroup.position.distanceTo(loot.mesh.position) < 1.8) {
+                        loot.active = false;
+                        scene.remove(loot.mesh);
+                        lootCollected++;
+                        audio.playLoot();
+                        updateHUD();
+                        showToast(`تم جمع إحدى الآثار! (${lootCollected}/${totalLoot})`);
+
+                        if (lootCollected >= totalLoot) {
+                            triggerVictory();
+                        }
+                    }
+                });
+
+                // Update Enemy AI Logic
+                updateEnemies(delta);
+
+                // Update Radar Blips
+                updateRadar();
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // ==========================================
+        // 10. UI HANDLERS & GAME CONTROLS
+        // ==========================================
+        function selectLocation(loc) {
+            currentLocation = loc;
+            document.querySelectorAll('.location-card').forEach(card => {
+                card.classList.remove('border-amber-500/80', 'bg-amber-500/20');
+                card.classList.add('border-transparent');
+            });
+            const activeCard = document.getElementById(`loc-${loc}`);
+            activeCard.classList.remove('border-transparent');
+            activeCard.classList.add('border-amber-500/80', 'bg-amber-500/20');
+
+            // Adjust Sky/Fog color based on governorate theme
+            const bgColors = {
+                sanaa: 0xd4a373,
+                marib: 0xe6b800,
+                hadramout: 0xcc9966,
+                socotra: 0x4682b4
+            };
+            const names = {
+                sanaa: "صنعاء القديمة",
+                marib: "مأرب الصحراء",
+                hadramout: "حضرموت - شبام",
+                socotra: "جزيرة سقطرى"
+            };
+            scene.background.setHex(bgColors[loc]);
+            scene.fog.color.setHex(bgColors[loc]);
+            document.getElementById('region-badge').innerText = names[loc];
+        }
+
+        function toggleCameraMode() {
+            isFirstPerson = !isFirstPerson;
+            playerBody.visible = !isFirstPerson;
+            weaponMesh.visible = isFirstPerson;
+            document.getElementById('cam-label').innerText = isFirstPerson ? 'FPS' : 'TPS';
+        }
+
+        function reloadWeapon() {
+            if (ammoReserve <= 0 || ammoClip === 30) return;
+            const needed = 30 - ammoClip;
+            const amount = Math.min(needed, ammoReserve);
+            ammoClip += amount;
+            ammoReserve -= amount;
+            updateHUD();
+            showToast("تم إعادة تعبئة السلاح!");
+        }
+
+        function takeDamage(amount) {
+            health = Math.max(0, health - amount);
+            updateHUD();
+
+            // Flash Red Vignette
+            const overlay = document.getElementById('damage-overlay');
+            overlay.style.opacity = '1';
+            setTimeout(() => overlay.style.opacity = '0', 250);
+
+            if (health <= 0) {
+                triggerGameOver(false);
+            }
+        }
+
+        function updateHUD() {
+            document.getElementById('health-text').innerText = `${health} HP`;
+            document.getElementById('health-bar').style.width = `${health}%`;
+            document.getElementById('ammo-clip').innerText = ammoClip;
+            document.getElementById('ammo-reserve').innerText = ammoReserve;
+            document.getElementById('loot-count').innerText = `${lootCollected} / ${totalLoot}`;
+        }
+
+        function updateRadar() {
+            const container = document.getElementById('radar-blips');
+            container.innerHTML = '';
+            const radSize = 96;
+
+            enemies.forEach(e => {
+                if (e.hp <= 0) return;
+                const relX = (e.mesh.position.x - playerGroup.position.x) * 1.5;
+                const relZ = (e.mesh.position.z - playerGroup.position.z) * 1.5;
+
+                if (Math.abs(relX) < radSize / 2 && Math.abs(relZ) < radSize / 2) {
+                    const blip = document.createElement('div');
+                    blip.className = 'absolute w-1.5 h-1.5 bg-red-500 rounded-full shadow-[0_0_4px_#f00]';
+                    blip.style.left = `${radSize / 2 + relX}px`;
+                    blip.style.top = `${radSize / 2 + relZ}px`;
+                    container.appendChild(blip);
+                }
+            });
+        }
+
+        function showToast(text) {
+            const toast = document.getElementById('game-toast');
+            toast.innerText = text;
+            toast.style.opacity = '1';
+            toast.style.transform = 'translateY(0)';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(-10px)';
+            }, 2500);
+        }
+
+        function triggerGameOver(isWin) {
+            isPlaying = false;
+            document.exitPointerLock();
+            const screen = document.getElementById('game-over-screen');
+            const title = document.getElementById('game-over-title');
+            const desc = document.getElementById('game-over-desc');
+            const icon = document.getElementById('game-over-icon');
+
+            if (isWin) {
+                icon.innerHTML = '<i class="fa-solid fa-trophy text-amber-400"></i>';
+                title.innerText = "نصر مجيد!";
+                desc.innerText = "لقد نجحت في حماية آثار الوطن واستعادة المجد!";
+            } else {
+                icon.innerHTML = '<i class="fa-solid fa-skull text-red-500"></i>';
+                title.innerText = "انتهاء المعركة";
+                desc.innerText = "لقد سقطت في ساحة الشرف defense. حاول مرة أخرى!";
+            }
+            screen.classList.remove('hidden');
+        }
+
+        function triggerVictory() {
+            triggerGameOver(true);
+        }
+
+        function resetGame() {
+            health = 100;
+            ammoClip = 30;
+            ammoReserve = 120;
+            lootCollected = 0;
+            playerGroup.position.set(0, 1.6, 0);
+            updateHUD();
+
+            document.getElementById('game-over-screen').classList.add('hidden');
+            document.getElementById('menu-screen').classList.add('hidden');
+            document.getElementById('hud-screen').classList.remove('hidden');
+
+            buildEnvironment();
+            isPlaying = true;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // ==========================================
+        // 11. INITIALIZATION EVENT LISTENERS
+        // ==========================================
+        window.onload = () => {
+            initEngine();
+
+            document.getElementById('btn-start-game').addEventListener('click', () => {
+                audio.init();
+                resetGame();
+            });
+
+            document.getElementById('btn-restart').addEventListener('click', () => {
+                resetGame();
+            });
+
+            document.getElementById('btn-cam-toggle').addEventListener('click', () => {
+                toggleCameraMode();
+            });
+
+            document.getElementById('btn-reload').addEventListener('click', () => {
+                reloadWeapon();
+            });
+
+            document.getElementById('btn-sound-toggle').addEventListener('click', () => {
+                audio.enabled = !audio.enabled;
+                const icon = document.getElementById('sound-icon');
+                icon.className = audio.enabled ? "fa-solid fa-volume-high" : "fa-solid fa-volume-xmark text-red-500";
+            });
+        };
+    </script>
+</body>
+</html>
+```

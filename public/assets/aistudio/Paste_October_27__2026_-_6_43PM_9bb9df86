@@ -1,0 +1,1014 @@
+```html
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>حرب الكتائب - لعبة القتال التكتيكي للهواتف</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- FontAwesome for UI Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * {
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      -webkit-touch-callout: none;
+    }
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #0b0f19;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+    #game-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    /* Touch Controls Overlay */
+    .touch-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+    }
+    .touch-active {
+      pointer-events: auto;
+    }
+    /* Virtual Joystick Styles */
+    .joystick-container {
+      position: absolute;
+      bottom: 25px;
+      left: 25px;
+      width: 130px;
+      height: 130px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .joystick-thumb {
+      width: 50px;
+      height: 50px;
+      background: radial-gradient(circle, rgba(59,130,246,0.9) 0%, rgba(29,78,216,0.8) 100%);
+      border: 2px solid rgba(255, 255, 255, 0.6);
+      border-radius: 50%;
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+      position: absolute;
+      transition: transform 0.05s ease-out;
+    }
+    /* Action Buttons */
+    .action-btn {
+      position: absolute;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      active: scale(0.92);
+      transition: transform 0.1s, background-color 0.2s;
+    }
+    .btn-fire {
+      bottom: 30px;
+      right: 30px;
+      width: 80px;
+      height: 80px;
+      background: radial-gradient(circle, rgba(239, 68, 68, 0.85) 0%, rgba(185, 28, 28, 0.9) 100%);
+      border: 3px solid rgba(254, 226, 226, 0.5);
+    }
+    .btn-aim {
+      bottom: 125px;
+      right: 40px;
+      width: 58px;
+      height: 58px;
+      background: rgba(31, 41, 55, 0.75);
+      border: 2px solid rgba(156, 163, 175, 0.5);
+    }
+    .btn-reload {
+      bottom: 40px;
+      right: 125px;
+      width: 58px;
+      height: 58px;
+      background: rgba(31, 41, 55, 0.75);
+      border: 2px solid rgba(156, 163, 175, 0.5);
+    }
+    .btn-jump {
+      bottom: 185px;
+      right: 100px;
+      width: 54px;
+      height: 54px;
+      background: rgba(31, 41, 55, 0.75);
+      border: 2px solid rgba(156, 163, 175, 0.5);
+    }
+    .btn-crouch {
+      bottom: 115px;
+      right: 115px;
+      width: 54px;
+      height: 54px;
+      background: rgba(31, 41, 55, 0.75);
+      border: 2px solid rgba(156, 163, 175, 0.5);
+    }
+    /* Crosshair */
+    #crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      z-index: 5;
+    }
+    /* Vignette & Damage Effect */
+    #damage-vignette {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      box-shadow: inset 0 0 50px rgba(239, 68, 68, 0);
+      transition: box-shadow 0.2s ease-out;
+      pointer-events: none;
+      z-index: 4;
+    }
+  </style>
+</head>
+<body class="bg-gray-900 text-white select-none">
+
+  <!-- 3D Render Canvas Container -->
+  <div id="game-container"></div>
+
+  <!-- Red Screen Flash on Hit -->
+  <div id="damage-vignette"></div>
+
+  <!-- HUD Overlay -->
+  <div class="touch-overlay">
+    <!-- Top Bar HUD -->
+    <div class="touch-active absolute top-2 left-2 right-2 flex justify-between items-center bg-gray-900/70 backdrop-blur-md px-3 py-2 rounded-xl border border-gray-700/50 shadow-lg text-xs md:text-sm">
+      <!-- Health & Armor -->
+      <div class="flex items-center space-x-3 space-x-reverse">
+        <div class="flex items-center space-x-1 space-x-reverse">
+          <i class="fa-solid fa-heart text-red-500"></i>
+          <div class="w-20 md:w-28 bg-gray-700 h-3 rounded-full overflow-hidden border border-gray-600">
+            <div id="hp-bar" class="bg-gradient-to-r from-red-600 to-emerald-500 h-full w-full transition-all duration-300"></div>
+          </div>
+          <span id="hp-text" class="font-bold text-white mr-1">100</span>
+        </div>
+        <div class="flex items-center space-x-1 space-x-reverse">
+          <i class="fa-solid fa-shield-halved text-blue-400"></i>
+          <span id="score-text" class="font-bold text-yellow-400">النقاط: 0</span>
+        </div>
+      </div>
+
+      <!-- Center Region Selector & Controls -->
+      <div class="flex items-center gap-2">
+        <select id="region-select" class="bg-gray-800 text-amber-400 border border-amber-500/50 rounded-lg text-xs px-2 py-1 focus:outline-none">
+          <option value="sanaa">صنعاء (المدينة والقلعة)</option>
+          <option value="marib">مأرب (الصحراء والآثار)</option>
+          <option value="hadramout">حضرموت (الأودية)</option>
+          <option value="socotra">سقطرى (الساحل الاستوائي)</option>
+        </select>
+        <button id="btn-camera" class="bg-gray-800 hover:bg-gray-700 text-gray-200 p-1.5 rounded-lg border border-gray-600">
+          <i class="fa-solid fa-camera"></i> <span id="cam-label" class="text-xs hidden sm:inline">TPS</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Ammo HUD Top Right -->
+    <div class="absolute top-14 left-3 bg-black/60 backdrop-blur border border-yellow-500/40 rounded-lg px-3 py-1.5 flex items-center space-x-2 space-x-reverse">
+      <i class="fa-solid fa-person-rifle text-yellow-400 text-base"></i>
+      <div>
+        <span id="ammo-clip" class="text-lg font-extrabold text-amber-400">30</span>
+        <span class="text-xs text-gray-400">/ <span id="ammo-reserve">120</span></span>
+      </div>
+    </div>
+
+    <!-- Aim Crosshair -->
+    <div id="crosshair">
+      <div class="w-2 h-2 bg-red-500 rounded-full border border-white opacity-80"></div>
+    </div>
+
+    <!-- Interactive Touch Controls -->
+    <!-- Movement Joystick Container (Left Side) -->
+    <div id="joystick-zone" class="touch-active joystick-container">
+      <div id="joystick-thumb" class="joystick-thumb"></div>
+    </div>
+
+    <!-- Right Touch Camera Aim Zone (Transparent overlay handling drag) -->
+    <div id="camera-touch-zone" class="touch-active absolute top-12 right-0 bottom-0 w-1/2"></div>
+
+    <!-- Mobile Action Buttons (Right Side) -->
+    <button id="btn-fire" class="touch-active action-btn btn-fire">
+      <i class="fa-solid fa-crosshairs text-xl mb-0.5"></i>
+      <span class="text-[10px]">إطلاق</span>
+    </button>
+
+    <button id="btn-aim" class="touch-active action-btn btn-aim">
+      <i class="fa-solid fa-eye text-base"></i>
+      <span class="text-[9px]">صوب</span>
+    </button>
+
+    <button id="btn-reload" class="touch-active action-btn btn-reload">
+      <i class="fa-solid fa-rotate-right text-base"></i>
+      <span class="text-[9px]">تزويد</span>
+    </button>
+
+    <button id="btn-jump" class="touch-active action-btn btn-jump">
+      <i class="fa-solid fa-arrow-up text-sm"></i>
+      <span class="text-[8px]">قفز</span>
+    </button>
+
+    <button id="btn-crouch" class="touch-active action-btn btn-crouch">
+      <i class="fa-solid fa-person-arrow-down-to-line text-sm"></i>
+      <span class="text-[8px]">انحناء</span>
+    </button>
+  </div>
+
+  <!-- Game Over / Victory Modal -->
+  <div id="modal-screen" class="hidden absolute inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="bg-gray-800 border-2 border-amber-500/60 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl">
+      <h2 id="modal-title" class="text-2xl font-black text-amber-400 mb-2">انتهت المعركة</h2>
+      <p id="modal-desc" class="text-gray-300 text-sm mb-4">لقد تم إقصاؤك في أداء الواجب القتالي.</p>
+      <div class="bg-gray-900 p-3 rounded-lg mb-4 flex justify-around border border-gray-700">
+        <div>
+          <span class="block text-xs text-gray-400">النقاط الإجمالية</span>
+          <span id="final-score" class="text-lg font-bold text-yellow-400">0</span>
+        </div>
+        <div>
+          <span class="block text-xs text-gray-400">الأهداف المصفاة</span>
+          <span id="final-kills" class="text-lg font-bold text-red-400">0</span>
+        </div>
+      </div>
+      <button id="btn-restart" class="w-full bg-gradient-to-r from-amber-600 to-amber-500 text-gray-950 font-black py-3 rounded-xl shadow-lg active:scale-95 transition-transform">
+        إعادة المحاولة الأن
+      </button>
+    </div>
+  </div>
+
+  <!-- Game Logic Script -->
+  <script>
+    // System Config & Audio Synthesizer
+    class WebAudioEngine {
+      constructor() {
+        this.ctx = null;
+      }
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      }
+      playGunshot() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const bufferSize = this.ctx.sampleRate * 0.15;
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          data[i] = Math.random() * 2 - 1;
+        }
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const filter = this.ctx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(1200, now);
+        filter.frequency.exponentialRampToValueAtTime(100, now + 0.12);
+
+        gain.gain.setValueAtTime(0.8, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.14);
+
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        noise.start(now);
+        noise.stop(now + 0.15);
+      }
+      playReload() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, now);
+        osc.frequency.exponentialRampToValueAtTime(300, now + 0.08);
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+      playHitSound() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
+        gain.gain.setValueAtTime(0.5, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      }
+    }
+
+    const audio = new WebAudioEngine();
+
+    // Game Core State Variables
+    let scene, camera, renderer;
+    let player, playerMesh;
+    let cameraMode = 'TPS'; // 'FPS' or 'TPS'
+    let isAiming = false;
+    let isCrouching = false;
+    let isJumping = false;
+    let verticalVelocity = 0;
+
+    const stats = {
+      hp: 100,
+      score: 0,
+      kills: 0,
+      ammo: 30,
+      reserve: 120,
+      isReloading: false
+    };
+
+    // Environment Colors by Region
+    const REGIONS = {
+      sanaa: { sky: 0x7eb6d9, fog: 0xd6e5f0, ground: 0x8c7051, structures: 0xaf8e68 },
+      marib: { sky: 0xe6ab65, fog: 0xf5cf9d, ground: 0xc49a55, structures: 0x9e733b },
+      hadramout: { sky: 0x82a9be, fog: 0xccdbe3, ground: 0x968364, structures: 0x705d43 },
+      socotra: { sky: 0x4fa8d1, fog: 0xafd9eb, ground: 0x2e6f40, structures: 0x3d4f41 }
+    };
+
+    let enemies = [];
+    let bullets = [];
+    let environmentObjects = [];
+
+    // Touch Joystick Controls State
+    const joystickState = { active: false, x: 0, y: 0, touchId: null };
+    const cameraTouchState = { active: false, startX: 0, startY: 0, touchId: null, yaw: 0, pitch: 0 };
+
+    // Mobile Haptic Feedback Helper
+    function triggerHaptic(type = 'light') {
+      if (navigator.vibrate) {
+        if (type === 'light') navigator.vibrate(15);
+        if (type === 'medium') navigator.vibrate(35);
+        if (type === 'heavy') navigator.vibrate([40, 30, 40]);
+      }
+    }
+
+    // Initialize 3D Scene
+    function initEngine() {
+      const container = document.getElementById('game-container');
+      
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(REGIONS.sanaa.sky);
+      scene.fog = new THREE.FogExp2(REGIONS.sanaa.fog, 0.015);
+
+      camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 500);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(renderer.domElement);
+
+      // Lights
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xfffaed, 1.2);
+      dirLight.position.set(40, 80, 40);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      dirLight.shadow.camera.near = 0.5;
+      dirLight.shadow.camera.far = 150;
+      const d = 40;
+      dirLight.shadow.camera.left = -d;
+      dirLight.shadow.camera.right = d;
+      dirLight.shadow.camera.top = d;
+      dirLight.shadow.camera.bottom = -d;
+      scene.add(dirLight);
+
+      // Build World Environment
+      buildTerrain('sanaa');
+      createPlayer();
+      spawnEnemies(5);
+
+      // Event Listeners
+      window.addEventListener('resize', onWindowResize);
+      setupMobileControls();
+
+      // Start Loop
+      animate();
+    }
+
+    // Procedural Soldier Builder
+    function createSoldierMesh(isEnemy = false) {
+      const group = new THREE.Group();
+
+      // Colors
+      const uniformMat = new THREE.MeshStandardMaterial({
+        color: isEnemy ? 0x483d8b : 0x3b5323,
+        roughness: 0.7
+      });
+      const vestMat = new THREE.MeshStandardMaterial({
+        color: isEnemy ? 0x1f1f2e : 0x1f2917,
+        roughness: 0.5
+      });
+      const skinMat = new THREE.MeshStandardMaterial({ color: 0xc58c65 });
+      const bootMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+      const gunMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8 });
+
+      // Torso
+      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.75, 0.3), uniformMat);
+      torso.position.y = 1.1;
+      torso.castShadow = true;
+      group.add(torso);
+
+      // Tactical Vest
+      const vest = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.45, 0.34), vestMat);
+      vest.position.set(0, 1.15, 0);
+      vest.castShadow = true;
+      group.add(vest);
+
+      // Head
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 12), skinMat);
+      head.position.y = 1.62;
+      head.castShadow = true;
+      group.add(head);
+
+      // Helmet
+      const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 12, 0, Math.PI * 2, 0, Math.PI * 0.5), vestMat);
+      helmet.position.y = 1.64;
+      helmet.castShadow = true;
+      group.add(helmet);
+
+      // Legs Left / Right
+      const legGeo = new THREE.CylinderGeometry(0.09, 0.08, 0.7);
+      const leftLeg = new THREE.Mesh(legGeo, uniformMat);
+      leftLeg.position.set(-0.14, 0.45, 0);
+      leftLeg.castShadow = true;
+      group.add(leftLeg);
+
+      const rightLeg = new THREE.Mesh(legGeo, uniformMat);
+      rightLeg.position.set(0.14, 0.45, 0);
+      rightLeg.castShadow = true;
+      group.add(rightLeg);
+
+      // Boots
+      const bootGeo = new THREE.BoxGeometry(0.12, 0.15, 0.22);
+      const leftBoot = new THREE.Mesh(bootGeo, bootMat);
+      leftBoot.position.set(-0.14, 0.08, 0.03);
+      group.add(leftBoot);
+
+      const rightBoot = new THREE.Mesh(bootGeo, bootMat);
+      rightBoot.position.set(0.14, 0.08, 0.03);
+      group.add(rightBoot);
+
+      // Tactical Assault Rifle
+      const rifleGroup = new THREE.Group();
+      const bodyRifle = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.6), gunMat);
+      const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3), gunMat);
+      barrel.rotation.x = Math.PI / 2;
+      barrel.position.set(0, 0.02, 0.4);
+
+      rifleGroup.add(bodyRifle);
+      rifleGroup.add(barrel);
+      rifleGroup.position.set(0.25, 1.15, 0.3);
+      group.add(rifleGroup);
+
+      // Store limb references for animation
+      group.userData = { leftLeg, rightLeg, torso, rifleGroup, walkAnimTime: 0 };
+      return group;
+    }
+
+    function createPlayer() {
+      playerMesh = createSoldierMesh(false);
+      scene.add(playerMesh);
+
+      player = {
+        position: new THREE.Vector3(0, 0, 0),
+        rotationY: 0,
+        speed: 0.12,
+        isCrouching: false
+      };
+    }
+
+    // Environment Generator
+    function buildTerrain(regionKey) {
+      // Clear existing terrain objects
+      environmentObjects.forEach(obj => scene.remove(obj));
+      environmentObjects = [];
+
+      const r = REGIONS[regionKey] || REGIONS.sanaa;
+      scene.background.setHex(r.sky);
+      scene.fog.color.setHex(r.fog);
+
+      // Ground plane
+      const groundGeo = new THREE.PlaneGeometry(300, 300);
+      const groundMat = new THREE.MeshStandardMaterial({ color: r.ground, roughness: 0.9 });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      ground.receiveShadow = true;
+      scene.add(ground);
+      environmentObjects.push(ground);
+
+      // Tactical Barriers and Walls
+      const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+      const wallMat = new THREE.MeshStandardMaterial({ color: r.structures, roughness: 0.8 });
+
+      for (let i = 0; i < 45; i++) {
+        const wall = new THREE.Mesh(boxGeo, wallMat);
+        const scaleX = 1 + Math.random() * 4;
+        const scaleY = 1.5 + Math.random() * 3;
+        const scaleZ = 1 + Math.random() * 4;
+        wall.scale.set(scaleX, scaleY, scaleZ);
+
+        const posX = (Math.random() - 0.5) * 120;
+        const posZ = (Math.random() - 0.5) * 120;
+        // Avoid spawning right on player center
+        if (Math.hypot(posX, posZ) < 8) continue;
+
+        wall.position.set(posX, scaleY / 2, posZ);
+        wall.castShadow = true;
+        wall.receiveShadow = true;
+        scene.add(wall);
+        environmentObjects.push(wall);
+      }
+    }
+
+    // Tactical AI Enemy Spawns
+    function spawnEnemies(count) {
+      enemies.forEach(e => scene.remove(e.mesh));
+      enemies = [];
+
+      for (let i = 0; i < count; i++) {
+        const enemyMesh = createSoldierMesh(true);
+        const radius = 20 + Math.random() * 35;
+        const angle = Math.random() * Math.PI * 2;
+        const x = Math.cos(angle) * radius;
+        const z = Math.sin(angle) * radius;
+
+        enemyMesh.position.set(x, 0, z);
+        scene.add(enemyMesh);
+
+        enemies.push({
+          mesh: enemyMesh,
+          hp: 100,
+          speed: 0.04 + Math.random() * 0.02,
+          lastShoot: 0,
+          patrolTarget: new THREE.Vector3(x + (Math.random() - 0.5) * 15, 0, z + (Math.random() - 0.5) * 15)
+        });
+      }
+    }
+
+    // Touch Controls Initialization
+    function setupMobileControls() {
+      const joystickZone = document.getElementById('joystick-zone');
+      const joystickThumb = document.getElementById('joystick-thumb');
+      const cameraZone = document.getElementById('camera-touch-zone');
+
+      // 1. Virtual Joystick Logic
+      joystickZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        audio.init();
+        const touch = e.changedTouches[0];
+        joystickState.active = true;
+        joystickState.touchId = touch.identifier;
+        updateJoystick(touch);
+      }, { passive: false });
+
+      joystickZone.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === joystickState.touchId) {
+            updateJoystick(e.changedTouches[i]);
+            break;
+          }
+        }
+      }, { passive: false });
+
+      const resetJoystick = (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === joystickState.touchId) {
+            joystickState.active = false;
+            joystickState.x = 0;
+            joystickState.y = 0;
+            joystickThumb.style.transform = `translate(0px, 0px)`;
+            break;
+          }
+        }
+      };
+
+      joystickZone.addEventListener('touchend', resetJoystick);
+      joystickZone.addEventListener('touchcancel', resetJoystick);
+
+      function updateJoystick(touch) {
+        const rect = joystickZone.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const maxRadius = rect.width / 2;
+
+        let dx = touch.clientX - centerX;
+        let dy = touch.clientY - centerY;
+        const dist = Math.hypot(dx, dy);
+
+        if (dist > maxRadius) {
+          dx = (dx / dist) * maxRadius;
+          dy = (dy / dist) * maxRadius;
+        }
+
+        joystickThumb.style.transform = `translate(${dx}px, ${dy}px)`;
+        joystickState.x = dx / maxRadius; // Range -1.0 to 1.0
+        joystickState.y = dy / maxRadius;
+      }
+
+      // 2. Camera Touch Drag Aiming (Right half of screen)
+      cameraZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        audio.init();
+        const touch = e.changedTouches[0];
+        cameraTouchState.active = true;
+        cameraTouchState.touchId = touch.identifier;
+        cameraTouchState.startX = touch.clientX;
+        cameraTouchState.startY = touch.clientY;
+      }, { passive: false });
+
+      cameraZone.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (!cameraTouchState.active) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const touch = e.changedTouches[i];
+          if (touch.identifier === cameraTouchState.touchId) {
+            const deltaX = touch.clientX - cameraTouchState.startX;
+            const deltaY = touch.clientY - cameraTouchState.startY;
+
+            cameraTouchState.yaw -= deltaX * 0.005;
+            cameraTouchState.pitch -= deltaY * 0.004;
+
+            // Pitch Constraints
+            cameraTouchState.pitch = Math.max(-Math.PI / 4, Math.min(Math.PI / 3, cameraTouchState.pitch));
+
+            cameraTouchState.startX = touch.clientX;
+            cameraTouchState.startY = touch.clientY;
+            break;
+          }
+        }
+      }, { passive: false });
+
+      const resetCameraTouch = (e) => {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === cameraTouchState.touchId) {
+            cameraTouchState.active = false;
+            break;
+          }
+        }
+      };
+
+      cameraZone.addEventListener('touchend', resetCameraTouch);
+      cameraZone.addEventListener('touchcancel', resetCameraTouch);
+
+      // 3. Mobile Action Buttons Events
+      document.getElementById('btn-fire').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        triggerHaptic('medium');
+        shootWeapon();
+      });
+
+      document.getElementById('btn-aim').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        triggerHaptic('light');
+        isAiming = !isAiming;
+        document.getElementById('btn-aim').classList.toggle('bg-amber-600', isAiming);
+      });
+
+      document.getElementById('btn-reload').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        triggerHaptic('light');
+        reloadWeapon();
+      });
+
+      document.getElementById('btn-jump').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (!isJumping) {
+          triggerHaptic('light');
+          isJumping = true;
+          verticalVelocity = 0.18;
+        }
+      });
+
+      document.getElementById('btn-crouch').addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        triggerHaptic('light');
+        isCrouching = !isCrouching;
+        document.getElementById('btn-crouch').classList.toggle('bg-blue-600', isCrouching);
+      });
+
+      // Camera Toggle Button
+      document.getElementById('btn-camera').addEventListener('click', () => {
+        triggerHaptic('light');
+        cameraMode = cameraMode === 'TPS' ? 'FPS' : 'TPS';
+        document.getElementById('cam-label').innerText = cameraMode;
+      });
+
+      // Region Switcher
+      document.getElementById('region-select').addEventListener('change', (e) => {
+        buildTerrain(e.target.value);
+        spawnEnemies(5 + Math.floor(Math.random() * 3));
+      });
+
+      // Restart Game
+      document.getElementById('btn-restart').addEventListener('click', () => {
+        resetGame();
+      });
+    }
+
+    // Weapon Combat Logic
+    function shootWeapon() {
+      if (stats.isReloading) return;
+      if (stats.ammo <= 0) {
+        audio.playReload();
+        return;
+      }
+
+      stats.ammo--;
+      updateHUD();
+      audio.playGunshot();
+
+      // Create Muzzle Flash Effect
+      const flash = new THREE.PointLight(0xffaa00, 3, 5);
+      flash.position.copy(playerMesh.position).add(new THREE.Vector3(0, 1.2, 0));
+      scene.add(flash);
+      setTimeout(() => scene.remove(flash), 40);
+
+      // Raycasting Bullet Hit Detection
+      const raycaster = new THREE.Raycaster();
+      const fireDirection = new THREE.Vector3(
+        -Math.sin(cameraTouchState.yaw),
+        Math.tan(cameraTouchState.pitch),
+        -Math.cos(cameraTouchState.yaw)
+      ).normalize();
+
+      raycaster.set(playerMesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)), fireDirection);
+
+      // Bullet Tracer Visual
+      createTracer(playerMesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)), fireDirection);
+
+      // Check Hits against Enemy Meshes
+      const enemyMeshes = enemies.map(e => e.mesh);
+      const intersects = raycaster.intersectObjects(enemyMeshes, true);
+
+      if (intersects.length > 0) {
+        const hitMesh = intersects[0].object;
+        let parentEnemy = enemies.find(e => e.mesh === hitMesh || e.mesh.children.includes(hitMesh));
+        if (parentEnemy) {
+          audio.playHitSound();
+          triggerHaptic('heavy');
+          parentEnemy.hp -= 35;
+
+          // Hit Spark Effect
+          createImpactSpark(intersects[0].point);
+
+          if (parentEnemy.hp <= 0) {
+            // Elimination Physics/Removal
+            scene.remove(parentEnemy.mesh);
+            enemies = enemies.filter(e => e !== parentEnemy);
+            stats.score += 150;
+            stats.kills += 1;
+            updateHUD();
+
+            // Respawn enemy after delay
+            setTimeout(() => {
+              if (enemies.length < 6) spawnEnemies(1);
+            }, 3000);
+          }
+        }
+      }
+    }
+
+    function createTracer(startPos, direction) {
+      const geom = new THREE.BufferGeometry().setFromPoints([
+        startPos,
+        startPos.clone().add(direction.clone().multiplyScalar(40))
+      ]);
+      const mat = new THREE.LineBasicMaterial({ color: 0xffea00, transparent: true, opacity: 0.8 });
+      const line = new THREE.Line(geom, mat);
+      scene.add(line);
+      setTimeout(() => scene.remove(line), 50);
+    }
+
+    function createImpactSpark(point) {
+      const pGeo = new THREE.SphereGeometry(0.08, 6, 6);
+      const pMat = new THREE.MeshBasicMaterial({ color: 0xff4500 });
+      const spark = new THREE.Mesh(pGeo, pMat);
+      spark.position.copy(point);
+      scene.add(spark);
+      setTimeout(() => scene.remove(spark), 100);
+    }
+
+    function reloadWeapon() {
+      if (stats.isReloading || stats.reserve <= 0 || stats.ammo === 30) return;
+      stats.isReloading = true;
+      audio.playReload();
+
+      const needed = 30 - stats.ammo;
+      const amount = Math.min(needed, stats.reserve);
+
+      setTimeout(() => {
+        stats.ammo += amount;
+        stats.reserve -= amount;
+        stats.isReloading = false;
+        updateHUD();
+      }, 1500);
+    }
+
+    function takeDamage(amount) {
+      stats.hp = Math.max(0, stats.hp - amount);
+      updateHUD();
+      triggerHaptic('heavy');
+
+      // Visual Red Vignette Flash
+      const vignette = document.getElementById('damage-vignette');
+      vignette.style.boxShadow = 'inset 0 0 50px rgba(239, 68, 68, 0.8)';
+      setTimeout(() => {
+        vignette.style.boxShadow = 'inset 0 0 50px rgba(239, 68, 68, 0)';
+      }, 250);
+
+      if (stats.hp <= 0) {
+        gameOver();
+      }
+    }
+
+    function updateHUD() {
+      document.getElementById('hp-bar').style.width = `${stats.hp}%`;
+      document.getElementById('hp-text').innerText = stats.hp;
+      document.getElementById('score-text').innerText = `النقاط: ${stats.score}`;
+      document.getElementById('ammo-clip').innerText = stats.ammo;
+      document.getElementById('ammo-reserve').innerText = stats.reserve;
+    }
+
+    function gameOver() {
+      document.getElementById('modal-title').innerText = "تم إقصاؤك في المعركة";
+      document.getElementById('modal-desc').innerText = "سقطت أثناء الدفاع في أرض المهمة القتالية.";
+      document.getElementById('final-score').innerText = stats.score;
+      document.getElementById('final-kills').innerText = stats.kills;
+      document.getElementById('modal-screen').classList.remove('hidden');
+    }
+
+    function resetGame() {
+      stats.hp = 100;
+      stats.score = 0;
+      stats.kills = 0;
+      stats.ammo = 30;
+      stats.reserve = 120;
+      updateHUD();
+      playerMesh.position.set(0, 0, 0);
+      spawnEnemies(5);
+      document.getElementById('modal-screen').classList.add('hidden');
+    }
+
+    // Engine Main Animation Loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Player Movement Logic from Joystick
+      if (joystickState.active) {
+        const moveSpeed = isCrouching ? player.speed * 0.5 : player.speed;
+        const moveVector = new THREE.Vector3(joystickState.x, 0, joystickState.y);
+        
+        // Rotate movement relative to camera yaw angle
+        moveVector.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraTouchState.yaw);
+
+        playerMesh.position.x += moveVector.x * moveSpeed;
+        playerMesh.position.z += moveVector.z * moveSpeed;
+
+        // Player Limb Walking Animation
+        const userData = playerMesh.userData;
+        userData.walkAnimTime += 0.15;
+        userData.leftLeg.rotation.x = Math.sin(userData.walkAnimTime) * 0.6;
+        userData.rightLeg.rotation.x = -Math.sin(userData.walkAnimTime) * 0.6;
+      }
+
+      // Player Rotation based on Camera Aiming Yaw
+      playerMesh.rotation.y = cameraTouchState.yaw;
+
+      // Jump & Gravity Update
+      if (isJumping) {
+        playerMesh.position.y += verticalVelocity;
+        verticalVelocity -= 0.012; // Gravity
+        if (playerMesh.position.y <= 0) {
+          playerMesh.position.y = 0;
+          isJumping = false;
+        }
+      } else if (isCrouching) {
+        playerMesh.scale.set(1, 0.7, 1);
+      } else {
+        playerMesh.scale.set(1, 1, 1);
+      }
+
+      // Camera Positioning (FPS vs TPS)
+      const targetFOV = isAiming ? 40 : 65;
+      camera.fov = THREE.MathUtils.lerp(camera.fov, targetFOV, 0.1);
+      camera.updateProjectionMatrix();
+
+      if (cameraMode === 'TPS') {
+        const camDistance = isAiming ? 2.2 : 4.5;
+        const camHeight = isCrouching ? 1.1 : 1.7;
+
+        camera.position.x = playerMesh.position.x + Math.sin(cameraTouchState.yaw) * camDistance;
+        camera.position.z = playerMesh.position.z + Math.cos(cameraTouchState.yaw) * camDistance;
+        camera.position.y = playerMesh.position.y + camHeight + Math.sin(cameraTouchState.pitch) * 2;
+        camera.lookAt(playerMesh.position.x, playerMesh.position.y + 1.2, playerMesh.position.z);
+        playerMesh.visible = true;
+      } else {
+        // FPS Mode
+        camera.position.copy(playerMesh.position).add(new THREE.Vector3(0, isCrouching ? 0.9 : 1.55, 0));
+        const lookDir = new THREE.Vector3(
+          -Math.sin(cameraTouchState.yaw),
+          Math.tan(cameraTouchState.pitch),
+          -Math.cos(cameraTouchState.yaw)
+        );
+        camera.lookAt(camera.position.clone().add(lookDir));
+        playerMesh.visible = false;
+      }
+
+      // Tactical AI Enemy Behaviors
+      const now = performance.now();
+      enemies.forEach(enemy => {
+        const distToPlayer = enemy.mesh.position.distanceTo(playerMesh.position);
+
+        if (distToPlayer < 25) {
+          // Chase Player
+          enemy.mesh.lookAt(playerMesh.position.x, 0, playerMesh.position.z);
+          enemy.mesh.translateZ(enemy.speed);
+
+          // Enemy Shooting
+          if (distToPlayer < 18 && now - enemy.lastShoot > 2200) {
+            enemy.lastShoot = now;
+            audio.playGunshot();
+            createTracer(enemy.mesh.position.clone().add(new THREE.Vector3(0, 1.2, 0)), 
+              playerMesh.position.clone().sub(enemy.mesh.position).normalize());
+            
+            // Random chance to hit player based on distance
+            if (Math.random() < 0.6) {
+              takeDamage(12);
+            }
+          }
+        } else {
+          // Patrol Random Target Locations
+          if (enemy.mesh.position.distanceTo(enemy.patrolTarget) < 2) {
+            enemy.patrolTarget.set(
+              enemy.mesh.position.x + (Math.random() - 0.5) * 20,
+              0,
+              enemy.mesh.position.z + (Math.random() - 0.5) * 20
+            );
+          }
+          enemy.mesh.lookAt(enemy.patrolTarget.x, 0, enemy.patrolTarget.z);
+          enemy.mesh.translateZ(enemy.speed * 0.5);
+        }
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // Start Engine on load
+    window.onload = () => {
+      initEngine();
+    };
+  </script>
+</body>
+</html>
+```

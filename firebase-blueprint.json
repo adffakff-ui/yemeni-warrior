@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores player statistics and profile information linked to Google Sign-In",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "displayName": { "type": "string", "maxLength": 60 },
+        "photoURL": { "type": "string", "maxLength": 500 },
+        "email": { "type": "string", "maxLength": 120 },
+        "totalWins": { "type": "number" },
+        "totalKills": { "type": "number" },
+        "totalMatches": { "type": "number" },
+        "highScore": { "type": "number" },
+        "lastPlayed": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "MatchRecord": {
+      "title": "Historical Match Record",
+      "description": "Historical record of an individual battle played by the user",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "regionId": { "type": "string", "maxLength": 30 },
+        "regionName": { "type": "string", "maxLength": 50 },
+        "score": { "type": "number" },
+        "kills": { "type": "number" },
+        "isWin": { "type": "boolean" },
+        "rank": { "type": "number" },
+        "relicsCollected": { "type": "number" },
+        "playtimeSeconds": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "regionId", "score", "kills", "isWin", "timestamp"]
+    },
+    "LeaderboardEntry": {
+      "title": "Leaderboard Entry",
+      "description": "Global high score record for the leaderboard",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string", "maxLength": 60 },
+        "score": { "type": "number" },
+        "kills": { "type": "number" },
+        "regionId": { "type": "string", "maxLength": 30 },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userName", "score", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Individual player profiles and lifetime statistics"
+    },
+    "/users/{userId}/matches/{matchId}": {
+      "schema": "MatchRecord",
+      "description": "Historical records of matches played by the user"
+    },
+    "/leaderboard/{entryId}": {
+      "schema": "LeaderboardEntry",
+      "description": "Public global leaderboard records"
+    }
+  }
+}

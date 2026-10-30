@@ -1,0 +1,7 @@
+{
+  "name": "لعبة محارب اليمن - Yemeni Warrior",
+  "description": "لعبة أكشن ملحمية مستوحاة من التراث اليمني العريق عبر صنعاء ومأرب وحضرموت وسقطرى بتجربة تحكم سلسة ومؤثرات صوتية تفاعلية.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
