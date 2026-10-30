@@ -435,15 +435,26 @@ export const APKInfoModal: React.FC<APKInfoModalProps> = ({ onClose, onInstallAP
             <p className="text-slate-300 mb-2.5 text-[11px]">
               تعتمد اللعبة تقنية Progressive Web App (PWA) المعتمدة من Google، والتي تحوّل اللعبة إلى تطبيق أصلي (WebAPK) يعمل بملء الشاشة مع أيقونة مستقلة على شاشة هاتفك.
             </p>
-            <button
-              onClick={() => {
-                soundSynth.playClick();
-                onInstallAPK();
-              }}
-              className="w-full py-3 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-slate-950 font-black rounded-xl text-xs shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <span>📲 تثبيت التطبيق الآن على جهازك</span>
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 mt-2">
+              <button
+                onClick={() => {
+                  soundSynth.playClick();
+                  onInstallAPK();
+                }}
+                className="flex-1 py-3 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-slate-950 font-black rounded-xl text-xs shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <span>📲 تثبيت التطبيق الآن (Install WebAPK)</span>
+              </button>
+
+              <a
+                href="/yemeni-warrior-bundle.zip"
+                download="yemeni-warrior-bundle.zip"
+                onClick={() => soundSynth.playClick()}
+                className="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold rounded-xl text-xs border border-amber-500/30 flex items-center justify-center gap-1.5 transition-all cursor-pointer text-center"
+              >
+                <span>📥 تحميل ملف الحزمة (ZIP)</span>
+              </a>
+            </div>
           </div>
 
           {/* Copy Link to Open on Mobile */}

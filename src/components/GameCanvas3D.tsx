@@ -345,13 +345,18 @@ export const GameCanvas3D: React.FC<GameCanvas3DProps> = ({
 
     // 1. Software WebGL Guard
     const isSoftwareGl = (() => {
-      const gl = document.createElement('canvas').getContext('webgl2');
-      if (!gl) return true;
-      const ext = gl.getExtension('WEBGL_debug_renderer_info');
-      const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER;
-      const gpu = String(gl.getParameter(param));
-      gl.getExtension('WEBGL_lose_context')?.loseContext();
-      return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
+      try {
+        const testCanvas = document.createElement('canvas');
+        const gl = testCanvas.getContext('webgl2') || testCanvas.getContext('webgl');
+        if (!gl) return true;
+        const ext = gl.getExtension('WEBGL_debug_renderer_info');
+        const param = ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER;
+        const gpu = String(gl.getParameter(param));
+        gl.getExtension('WEBGL_lose_context')?.loseContext();
+        return /SwiftShader|llvmpipe|softpipe|Software|Basic Render/i.test(gpu);
+      } catch {
+        return true;
+      }
     })();
 
     // 2. Three.js Scene & Camera Setup
@@ -362,10 +367,20 @@ export const GameCanvas3D: React.FC<GameCanvas3DProps> = ({
 
     const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-    const renderer = new THREE.WebGLRenderer({
-      powerPreference: 'high-performance',
-      antialias: !isSoftwareGl,
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        powerPreference: 'high-performance',
+        antialias: !isSoftwareGl,
+        precision: isSoftwareGl ? 'mediump' : 'highp',
+      });
+    } catch {
+      renderer = new THREE.WebGLRenderer({
+        antialias: false,
+        precision: 'mediump',
+      });
+    }
+
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, isSoftwareGl ? 1 : 2));
     renderer.shadowMap.enabled = !isSoftwareGl;
@@ -374,9 +389,14 @@ export const GameCanvas3D: React.FC<GameCanvas3DProps> = ({
     renderer.toneMappingExposure = 1.15;
     container.appendChild(renderer.domElement);
 
-    // Environment Lighting
-    const pmremGen = new THREE.PMREMGenerator(renderer);
-    scene.environment = pmremGen.fromScene(new RoomEnvironment()).texture;
+    // Environment Lighting with safe fallback
+    let pmremGen: THREE.PMREMGenerator | null = null;
+    try {
+      pmremGen = new THREE.PMREMGenerator(renderer);
+      scene.environment = pmremGen.fromScene(new RoomEnvironment()).texture;
+    } catch (e) {
+      console.warn('RoomEnvironment fallback triggered:', e);
+    }
 
     const ambientLight = new THREE.AmbientLight(0xfff5eb, 0.65);
     scene.add(ambientLight);
@@ -1543,7 +1563,7 @@ export const GameCanvas3D: React.FC<GameCanvas3DProps> = ({
       container.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('resize', handleResize);
 
-      pmremGen.dispose();
+      pmremGen?.dispose();
       renderer.dispose();
       if (renderer.domElement.parentElement) {
         renderer.domElement.parentElement.removeChild(renderer.domElement);

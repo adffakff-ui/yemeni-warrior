@@ -208,15 +208,18 @@ export default function App() {
 
   const handleTriggerInstall = async () => {
     if (installPromptEvent) {
-      installPromptEvent.prompt();
-      const choice = await installPromptEvent.userChoice;
-      if (choice.outcome === 'accepted') {
-        setInstallPromptEvent(null);
+      try {
+        installPromptEvent.prompt();
+        const choice = await installPromptEvent.userChoice;
+        if (choice.outcome === 'accepted') {
+          setInstallPromptEvent(null);
+          handleShowToast('جارٍ تثبيت التطبيق على جهازك...');
+        }
+      } catch (e) {
+        console.warn('Install prompt error:', e);
       }
     } else {
-      alert(
-        'لتثبيت التطبيق على جهازك، افتح قائمة متصفح Google Chrome (⋮) واختر "إضافة إلى الشاشة الرئيسية" (Add to Home screen).'
-      );
+      handleShowToast('لتثبيت التطبيق، اضغط على (⋮) بالمتصفح ثم "إضافة إلى الشاشة الرئيسية"');
     }
   };
 
@@ -329,7 +332,7 @@ export default function App() {
     <div className="relative w-screen h-screen overflow-hidden bg-[#030712] select-none">
       {/* 60fps 3D Tactical Combat Canvas (Three.js WebGL) */}
       <GameCanvas3D
-        key={`${regionId}-${gameState === 'PLAYING' ? 'active' : 'idle'}`}
+        key={regionId}
         regionId={regionId}
         isRunning={gameState === 'PLAYING'}
         viewMode={viewMode}
