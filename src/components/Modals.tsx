@@ -435,25 +435,27 @@ export const APKInfoModal: React.FC<APKInfoModalProps> = ({ onClose, onInstallAP
             <p className="text-slate-300 mb-2.5 text-[11px]">
               تعتمد اللعبة تقنية Progressive Web App (PWA) المعتمدة من Google، والتي تحوّل اللعبة إلى تطبيق أصلي (WebAPK) يعمل بملء الشاشة مع أيقونة مستقلة على شاشة هاتفك.
             </p>
-            <div className="flex flex-col sm:flex-row gap-2 mt-2">
+            {/* Resolution notice for "التطبيق ليس مثبتاً" error */}
+            <div className="p-3 bg-amber-500/15 border border-amber-500/30 rounded-xl text-[11px] space-y-1 text-right mb-2">
+              <strong className="text-amber-300 block font-bold">⚠️ حل مشكلة خطأ «التطبيق ليس مثبتاً» (Package Installer):</strong>
+              <p className="text-slate-300">
+                رسالة "التطبيق ليس مثبتاً" التي ظهرت لملف <code className="text-amber-300 font-mono">base.apk</code> تحدث لأن ذلك الملف هو حزمة مجزأة (Split APK) ناقصة لـ Free Fire MAX.
+              </p>
+              <p className="text-emerald-300 font-medium">
+                بينما لعبتنا <strong>«محارب اليمن 3D»</strong> تُثبت بنقرة واحدة كتطبيق أصلي موقّع رسمياً (WebAPK) لجهازك مباشرة وبدون أي أخطاء عبر الزر أدناه!
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2 mt-2">
               <button
                 onClick={() => {
                   soundSynth.playClick();
                   onInstallAPK();
                 }}
-                className="flex-1 py-3 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-slate-950 font-black rounded-xl text-xs shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 text-slate-950 font-black rounded-xl text-xs shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>📲 تثبيت التطبيق الآن (Install WebAPK)</span>
+                <span>📲 تثبيت لعبة محارب اليمن الأصلية الآن (Install WebAPK)</span>
               </button>
-
-              <a
-                href="/yemeni-warrior-bundle.zip"
-                download="yemeni-warrior-bundle.zip"
-                onClick={() => soundSynth.playClick()}
-                className="py-3 px-4 bg-slate-800 hover:bg-slate-700 text-amber-300 font-bold rounded-xl text-xs border border-amber-500/30 flex items-center justify-center gap-1.5 transition-all cursor-pointer text-center"
-              >
-                <span>📥 تحميل ملف الحزمة (ZIP)</span>
-              </a>
             </div>
           </div>
 
