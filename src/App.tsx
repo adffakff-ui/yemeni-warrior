@@ -12,6 +12,7 @@ import { TitleScreen } from './components/TitleScreen';
 import { PauseModal, GameOverModal, VictoryModal, APKInfoModal } from './components/Modals';
 import { GoogleMapsTacticalView } from './components/GoogleMapsTacticalView';
 import { UserProfileModal } from './components/UserProfileModal';
+import { CinematicTrailerView } from './components/CinematicTrailerView';
 import { soundSynth } from './audio/SoundSynth';
 import { useFirebase } from './lib/FirebaseProvider';
 
@@ -25,6 +26,7 @@ export default function App() {
   const [showAPKModal, setShowAPKModal] = useState<boolean>(false);
   const [showTacticalMap, setShowTacticalMap] = useState<boolean>(false);
   const [showUserProfileModal, setShowUserProfileModal] = useState<boolean>(false);
+  const [showTrailer, setShowTrailer] = useState<boolean>(false);
 
   const { user, signIn, logOut, saveMatchResult } = useFirebase();
 
@@ -370,6 +372,7 @@ export default function App() {
           onStartGame={startGame}
           isMuted={isMuted}
           onToggleMute={handleToggleMute}
+          onOpenTrailer={() => setShowTrailer(true)}
           onOpenAPKModal={() => setShowAPKModal(true)}
           onOpenTacticalMap={() => setShowTacticalMap(true)}
           onOpenUserProfileModal={() => setShowUserProfileModal(true)}
@@ -490,6 +493,20 @@ export default function App() {
           onClose={() => setShowAPKModal(false)}
           onInstallAPK={handleTriggerInstall}
           canInstall={!!installPromptEvent}
+        />
+      )}
+
+      {/* 3D Cinematic Web Video Trailer */}
+      {showTrailer && (
+        <CinematicTrailerView
+          onClose={() => setShowTrailer(false)}
+          onStartBattle={(chosenRegion) => {
+            setRegionId(chosenRegion);
+            setShowTrailer(false);
+            if (gameState !== 'PLAYING') {
+              startGame();
+            }
+          }}
         />
       )}
     </div>

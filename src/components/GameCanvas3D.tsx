@@ -176,6 +176,9 @@ export const GameCanvas3D: React.FC<GameCanvas3DProps> = ({
       mesh: THREE.Group;
       type: 'weapon' | 'health' | 'armor';
     }[],
+    isParachuting: false,
+    parachuteMesh: null as THREE.Group | null,
+    hasSpawnedWithParachute: false,
   });
 
   // Keep props synced with stateRef
@@ -189,6 +192,15 @@ export const GameCanvas3D: React.FC<GameCanvas3DProps> = ({
 
   useEffect(() => {
     stateRef.current.isRunning = isRunning;
+    if (isRunning && !stateRef.current.hasSpawnedWithParachute) {
+      stateRef.current.hasSpawnedWithParachute = true;
+      stateRef.current.isParachuting = true;
+      stateRef.current.player.y = 52;
+      if (stateRef.current.parachuteMesh) {
+        stateRef.current.parachuteMesh.visible = true;
+      }
+      onShowToast('🪂 هبوط تكتيكي بالمظلة! وجه مسارك بعصا التحكم نحو موقع الهبوط');
+    }
   }, [isRunning]);
 
   useEffect(() => {
@@ -767,6 +779,38 @@ export const GameCanvas3D: React.FC<GameCanvas3DProps> = ({
     const playerGroup = new THREE.Group();
     const playerRig = createProceduralHumanSoldier(false);
     playerGroup.add(playerRig);
+
+    // Procedural Tactical Parachute Canopy
+    const parachuteGroup = new THREE.Group();
+    const canopyMat = new THREE.MeshStandardMaterial({
+      color: 0xca8a04, // Tactical Desert Gold
+      roughness: 0.6,
+      side: THREE.DoubleSide,
+    });
+    const canopyGeo = new THREE.SphereGeometry(3.6, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2.2);
+    const canopyMesh = new THREE.Mesh(canopyGeo, canopyMat);
+    canopyMesh.position.y = 4.2;
+    canopyMesh.scale.set(1.4, 0.9, 1.4);
+    parachuteGroup.add(canopyMesh);
+
+    // Suspension cords
+    const cordMat = new THREE.LineBasicMaterial({ color: 0x94a3b8 });
+    for (let c = 0; c < 8; c++) {
+      const angle = (c / 8) * Math.PI * 2;
+      const rx = Math.cos(angle) * 4.6;
+      const rz = Math.sin(angle) * 4.6;
+      const cordGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(rx, 4.2, rz),
+        new THREE.Vector3(0, 1.4, 0),
+      ]);
+      const cord = new THREE.Line(cordGeo, cordMat);
+      parachuteGroup.add(cord);
+    }
+
+    parachuteGroup.visible = false;
+    playerGroup.add(parachuteGroup);
+    stateRef.current.parachuteMesh = parachuteGroup;
+
     scene.add(playerGroup);
 
     playerGroup.add(camera);
@@ -1240,8 +1284,23 @@ export const GameCanvas3D: React.FC<GameCanvas3DProps> = ({
             if (s.player.dashDuration <= 0) s.player.isDashing = false;
           }
 
-          // Jump & Gravity Physics
-          if (s.player.isJumping) {
+          // Tactical Airborne Parachute Descent
+          if (s.isParachuting) {
+            s.player.y -= dt * 10.5;
+            if (s.parachuteMesh) {
+              s.parachuteMesh.rotation.z = Math.sin(timestamp * 0.003) * 0.08;
+              s.parachuteMesh.rotation.x = Math.cos(timestamp * 0.002) * 0.05;
+            }
+            if (s.player.y <= 0) {
+              s.player.y = 0;
+              s.isParachuting = false;
+              if (s.parachuteMesh) s.parachuteMesh.visible = false;
+              s.cameraShake = 0.5;
+              soundSynth.playDash();
+              onShowToast('⚔️ تم الهبوط بنجاح في أرض المعركة! جهز عتادك للدفاع عن اليمن!');
+            }
+          } else if (s.player.isJumping) {
+            // Jump & Gravity Physics
             s.player.y += s.player.verticalVelocity;
             s.player.verticalVelocity -= 0.012;
             if (s.player.y <= 0) {

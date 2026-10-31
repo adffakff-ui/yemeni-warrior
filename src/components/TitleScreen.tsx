@@ -7,6 +7,9 @@ import {
   LogOut,
   Compass,
   Trophy,
+  Film,
+  Sparkles,
+  Share2,
 } from 'lucide-react';
 import { REGIONS } from '../data/regions';
 import { RegionId } from '../types/game';
@@ -20,6 +23,7 @@ interface TitleScreenProps {
   onStartGame: () => void;
   isMuted: boolean;
   onToggleMute: () => void;
+  onOpenTrailer: () => void;
   onOpenAPKModal: () => void;
   onOpenTacticalMap: () => void;
   onOpenUserProfileModal: () => void;
@@ -34,6 +38,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
   onStartGame,
   isMuted,
   onToggleMute,
+  onOpenTrailer,
   onOpenAPKModal,
   onOpenTacticalMap,
   onOpenUserProfileModal,
@@ -140,6 +145,20 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             </button>
           )}
 
+          {/* 3D Web Video Trailer */}
+          <button
+            onClick={() => {
+              soundSynth.playClick();
+              onOpenTrailer();
+            }}
+            className="hud-panel rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-rose-300 hover:text-white bg-rose-600/20 border border-rose-500/40 hover:border-rose-400 active:scale-95 transition-all cursor-pointer shadow-[0_0_12px_rgba(244,63,94,0.3)] animate-pulse"
+            title="فيديو العرض السينمائي 3D للعبة"
+          >
+            <Film className="w-4 h-4 text-rose-400" />
+            <span className="hidden sm:inline">فيديو الويب 3D</span>
+            <span className="sm:hidden">الفيديو</span>
+          </button>
+
           {/* Google Maps Tactical Button */}
           <button
             onClick={() => {
@@ -153,7 +172,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             <span className="sm:hidden">الخريطة</span>
           </button>
 
-          {/* APK & Info */}
+          {/* APK & Package Hub */}
           <button
             onClick={() => {
               soundSynth.playClick();
@@ -161,7 +180,8 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
             }}
             className="hud-panel rounded-xl px-3 py-2 flex items-center gap-1.5 text-xs font-semibold text-amber-300 hover:text-amber-200 bg-amber-500/10 border border-amber-500/30 active:scale-95 transition-all cursor-pointer"
           >
-            <span>📱 حجم اللعبة و APK</span>
+            <Share2 className="w-4 h-4 text-amber-400" />
+            <span>حزمة التثبيت والمشاركة</span>
           </button>
 
           {/* Audio */}
@@ -292,8 +312,35 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </button>
 
         {/* Global Leaderboard Section */}
-        <div className="w-full max-w-2xl mb-6">
+        <div className="w-full max-w-2xl mb-5">
           <Leaderboard />
+        </div>
+
+        {/* 3D Web Video Showcase Banner */}
+        <div className="w-full max-w-md mb-4">
+          <button
+            onClick={() => {
+              soundSynth.playClick();
+              onOpenTrailer();
+            }}
+            className="w-full p-3 bg-gradient-to-r from-red-950/70 via-slate-900/90 to-amber-950/70 hover:from-red-900/80 hover:to-amber-900/80 border-2 border-amber-500/50 hover:border-amber-400 rounded-2xl text-right transition-all flex items-center justify-between gap-3 shadow-[0_0_25px_rgba(245,158,11,0.25)] group cursor-pointer"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-red-600/30 border border-red-500/50 flex items-center justify-center text-red-400 group-hover:scale-110 transition-transform">
+                <Film className="w-5 h-5 text-amber-400" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-black text-amber-300">🎬 فيديو الويب السينمائي 3D (Web Video)</span>
+                  <span className="text-[9px] bg-red-600 text-white font-extrabold px-1.5 py-0.2 rounded-full">جديد</span>
+                </div>
+                <span className="text-[10px] text-slate-300 block">
+                  شاهد الهبوط بالمظلة التكتيكية ومعارك أزقة صنعاء ومأرب وحضرموت وسقطرى
+                </span>
+              </div>
+            </div>
+            <span className="text-amber-400 text-sm font-bold pl-2 group-hover:translate-x-[-3px] transition-transform">◀</span>
+          </button>
         </div>
 
         {/* Primary Start CTA Button */}
